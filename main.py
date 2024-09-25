@@ -1,5 +1,10 @@
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import simpledialog
+import datetime
+import sounddevice as sd
+import numpy as np
+import wavio
 
 # Credenziali di accesso (username e password)
 USERNAME = "admin"
@@ -8,6 +13,16 @@ PASSWORD = "password123"
 # Funzione di autenticazione
 def authenticate(user, pwd):
     return user == USERNAME and pwd == PASSWORD
+
+# Funzione per registrare audio
+def record_audio(filename):
+    duration = 10  # durata della registrazione in secondi
+    fs = 44100  # frequenza di campionamento
+    print("Registrazione... (premi Ctrl+C per interrompere)")
+    audio = sd.rec(int(duration * fs), samplerate=fs, channels=2)
+    sd.wait()  # Aspetta che la registrazione sia completata
+    wavio.write(filename, audio, fs, sampwidth=2)  # Salva il file audio
+    print(f"Registrazione salvata come: {filename}")
 
 # Creazione dell'app GUI
 class UrbexLandsApp:
@@ -47,7 +62,6 @@ class UrbexLandsApp:
             messagebox.showerror("Errore", "Username o Password errati!")
 
     def open_dashboard(self):
-        # Distruggi la finestra di login e apri la dashboard
         self.root.destroy()
         dashboard = tk.Tk()
         Dashboard(dashboard)
@@ -104,11 +118,14 @@ class Dashboard:
         management_label = tk.Label(management_window, text=f"Gestione di {location}", font=("Arial", 24), fg="white", bg="black")
         management_label.pack(pady=20)
 
-        # Aggiungi ulteriori elementi di gestione qui
+        # Orario attuale
+        self.current_time_label = tk.Label(management_window, font=("Arial", 16), fg="white", bg="black")
+        self.current_time_label.pack(pady=10)
+        self.update_time()
+
         # Pulsante Energy ON/OFF
         self.energy_status = tk.StringVar(value="OFF")
-        self.energy_button = tk.Button(management_window, text="Energy OFF", font=("Arial", 14), 
-                                        command=self.toggle_energy)
+        self.energy_button = tk.Button(management_window, text="Energy OFF", font=("Arial", 14), command=self.toggle_energy)
         self.energy_button.pack(pady=20)
 
         # Note
@@ -118,12 +135,24 @@ class Dashboard:
         self.note_text = tk.Text(management_window, height=5, width=40)
         self.note_text.pack(pady=5)
 
+        # Pulsante per aggiungere nota
+        self.add_note_btn = tk.Button(management_window, text="Aggiungi Nota", font=("Arial", 14), command=self.add_note)
+        self.add_note_btn.pack(pady=10)
+
         # Persone in servizio
         self.service_people_label = tk.Label(management_window, text="Persone in servizio:", font=("Arial", 16), fg="white", bg="black")
         self.service_people_label.pack(pady=10)
 
         self.service_people_text = tk.Text(management_window, height=5, width=40)
         self.service_people_text.pack(pady=5)
+
+        # Pulsante per aggiungere crew
+        self.add_crew_btn = tk.Button(management_window, text="Aggiungi Crew", font=("Arial", 14), command=self.add_crew)
+        self.add_crew_btn.pack(pady=10)
+
+        # Pulsante di registrazione audio
+        self.record_btn = tk.Button(management_window, text="Registra Audio", font=("Arial", 14), command=self.record_audio)
+        self.record_btn.pack(pady=20)
 
         # Percentuale di esplorazione
         self.exploration_percentage_label = tk.Label(management_window, text="Percentuale di esplorazione: 0%", font=("Arial", 16), fg="white", bg="black")
@@ -132,6 +161,30 @@ class Dashboard:
         # Pulsante di salvataggio
         self.save_button = tk.Button(management_window, text="Salva Dettagli", font=("Arial", 14), command=self.save_details)
         self.save_button.pack(pady=20)
+
+    def update_time(self):
+        now = datetime.datetime.now()
+        self.current_time_label.config(text=f"Orario attuale: {now.strftime('%H:%M:%S %d/%m/%Y')}")
+        self.root.after(1000, self.update_time)  # Aggiorna ogni secondo
+
+    def add_note(self):
+        note = self.note_text.get("1.0", tk.END).strip()
+        if note:
+            timestamp = datetime.datetime.now().strftime('%H:%M:%S %d/%m/%Y')
+            formatted_note = f"{timestamp}: {note}\n"
+            self.note_text.insert(tk.END, formatted_note)
+            self.note_text.delete("1.0", tk.END)  # Cancella il campo nota
+
+    def add_crew(self):
+        crew_member = simpledialog.askstring("Aggiungi Crew", "Nome membro della crew:")
+        if crew_member:
+            timestamp = datetime.datetime.now().strftime('%H:%M:%S %d/%m/%Y')
+            formatted_crew = f"{timestamp}: {crew_member} (Attivo)\n"
+            self.service_people_text.insert(tk.END, formatted_crew)
+
+    def record_audio(self):
+        filename = f"recording_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+        record_audio(filename)
 
     def toggle_energy(self):
         # Cambia lo stato dell'energia
